@@ -1,78 +1,332 @@
 <!doctype html>
-shareLink.select();
-document.execCommand('copy');
-copyBtn.textContent='Kész: másolva';
-setTimeout(()=>copyBtn.textContent='Másol',1500);
-});
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kérdés–válasz ellenőrző</title>
+  <style>
+    :root{
+      --bg:#f4f5fa;
+      --card:#ffffff;
+      --accent:#a3d2e6;
+      --accent2:#e7d4f8;
+      --text:#2e3440;
+      --muted:#6b7280;
+      --radius:18px;
+      --shadow:0 8px 24px rgba(0,0,0,0.07);
+      font-family:'Inter', system-ui, sans-serif;
+    }
 
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#f0f4ff,#fafbff);
+      padding:32px;
+      display:flex;
+      justify-content:center;
+    }
 
-// Player functionality
-const player = document.getElementById('player');
-const creator = document.getElementById('creator');
-const qTitle = document.getElementById('qTitle');
-const qText = document.getElementById('qText');
-const ansInput = document.getElementById('ansInput');
-const submitBtn = document.getElementById('submitBtn');
-const resultBox = document.getElementById('result');
+    .container{
+      width:100%;
+      max-width:960px;
+      animation:fadeIn .5s ease;
+    }
 
+    @keyframes fadeIn{
+      from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);}
+    }
 
-function showPlayerWith(payload){
-creator.style.display='none';
-player.style.display='block';
-qTitle.textContent = 'Kérdés';
-qText.textContent = payload.q || '—';
-// store correct answer in memory but do not show
-player._correct = payload.a || '';
-}
+    h1{
+      font-size:1.8rem;
+      color:var(--text);
+      margin-bottom:6px;
+      font-weight:700;
+    }
 
+    p.lead{
+      margin:0 0 18px;
+      color:var(--muted);
+      font-size:1.05rem;
+    }
 
-// on load: check for fragment
-window.addEventListener('load', ()=>{
-const frag = location.hash.replace('#','');
-if(frag){
-const payload = fromBase64(frag);
-if(payload && payload.q !== undefined){
-showPlayerWith(payload);
-return;
-}
-}
-// otherwise show creator
-creator.style.display='block';
-player.style.display='none';
-});
+    .card{
+      background:var(--card);
+      padding:28px;
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      margin-bottom:24px;
+      backdrop-filter:blur(4px);
+    }
 
+    label{
+      font-weight:600;
+      margin-bottom:8px;
+      display:block;
+      color:var(--text);
+    }
 
-submitBtn.addEventListener('click', ()=>{
-const user = clean(ansInput.value);
-const correct = player._correct || '';
-if(user.length===0){ alert('Kérlek írj be egy választ.'); return; }
-const sim = similarity(user, correct);
-const percent = Math.round(sim*100);
-resultBox.style.display='block';
-resultBox.innerHTML = `Egyezés: <strong>${percent}%</strong>` +
-`<div class="muted small" style="margin-top:8px;font-weight:600">(automatikus összehasonlítás: karakter- és szóegyezés alapján)</div>`;
+    input[type=text], textarea{
+      width:100%;
+      padding:14px 16px;
+      border-radius:14px;
+      border:1px solid #e3e6ef;
+      background:#fff;
+      font-size:1rem;
+      transition:0.2s;
+    }
 
+    input[type=text]:focus, textarea:focus{
+      border-color:var(--accent);
+      box-shadow:0 0 0 3px rgba(163,210,230,0.35);
+      outline:none;
+    }
 
-// optionally reveal correct answer after showing result? keep hidden but offer button
-if(!document.getElementById('revealBtn')){
-const btn = document.createElement('button');
-btn.id='revealBtn';
-btn.style.marginTop='10px';
-btn.textContent='Mutasd a helyes választ';
-btn.addEventListener('click',()=>{
-alert('Helyes válasz: ' + correct);
-});
-resultBox.appendChild(btn);
-}
-});
+    button{
+      padding:12px 22px;
+      font-size:1rem;
+      font-weight:700;
+      border-radius:14px;
+      border:none;
+      cursor:pointer;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+      box-shadow:0 6px 18px rgba(120,130,240,0.2);
+      transition:0.25s;
+    }
 
+    button:hover{
+      transform:translateY(-2px);
+      box-shadow:0 10px 24px rgba(120,130,240,0.22);
+    }
 
-// small: pressing enter in answer textarea does not submit -- keep multiline
+    .row{display:flex;gap:12px;align-items:center}
+    @media(max-width:700px){.row{flex-direction:column;align-items:stretch}}
 
+    .result{
+      background:linear-gradient(180deg,#fff,#f6f8ff);
+      padding:22px;
+      font-size:1.3rem;
+      border-radius:16px;
+      text-align:center;
+      box-shadow:var(--shadow);
+      margin-top:16px;
+      font-weight:700;
+    }
 
-</script>
-<div style="text-align:center;margin-top:30px;">
-<button style="margin-top:10px">Kész!</button>
-</div>
+    .chip{
+      background:#eef7fa;
+      padding:10px 14px;
+      border-radius:999px;
+      font-weight:600;
+      font-size:0.9rem;
+      color:#4a5568;
+    }
+
+    footer{
+      text-align:center;
+      margin-top:24px;
+      color:var(--muted);
+      font-size:0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card" id="creator">
+      $1
+      
+      <p class="lead">Írd be a kérdést és a helyes választ. A generált linket elküldve mások csak a kérdést látják — a helyes választ nem jelenítjük meg a felhasználóknak.</p>
+
+      <label for="qInput">Kérdés</label>
+      <textarea id="qInput" rows="3" placeholder="Ide írd a kérdést...">Mi Magyarország fővárosa?</textarea>
+
+      <label for="aInput">Helyes válasz (a látogatók nem fogják látni)</label>
+      <input id="aInput" type="text" placeholder="Pl.: Budapest" value="Budapest">
+
+      <div style="height:10px"></div>
+      <div class="row">
+        <div class="col linkbox">
+          <button id="genBtn">Link generálása</button>
+          <span class="muted small">— másold ki és küldd el a linket azoknak, akik válaszolni fognak.</span>
+        </div>
+      </div>
+
+      <div id="linkArea" style="margin-top:12px;display:none">
+        <label>Megosztható link</label>
+        <div class="row">
+          <input id="shareLink" type="text" readonly>
+          <button id="copyBtn">Másol</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="player" style="display:none">
+      <h1 id="qTitle">Kérdés</h1>
+      <p id="qText" class="muted"></p>
+
+      <label for="ansInput">A te válaszod</label>
+      <textarea id="ansInput" rows="3" placeholder="Ide írd a válaszodat..."></textarea>
+      <div style="height:10px"></div>
+      <div class="row">
+        <div class="col">
+          <button id="submitBtn">Kész!</button>
+        </div>
+        <div style="min-width:120px;display:flex;align-items:center;justify-content:flex-end">
+          <div class="chip">Link birtokában válaszolhatsz</div>
+        </div>
+      </div>
+
+      <div id="result" style="display:none" class="result"></div>
+    </div>
+
+    <footer class="muted">Készült egyszerűsített összehasonlítással (karakter- és szó-egyezés alapú). A linkben található adatok Base64-kódolással vannak elrejtve — nem biztonságos titkosítás, csak egyszerű elrejtés céljából.</footer>
+  </div>
+
+  <script>
+    // --- helper: base64 encode/decode for URL-safe fragment ---
+    function toBase64(obj){
+      const s = JSON.stringify(obj);
+      return btoa(unescape(encodeURIComponent(s))).replace(/=/g,'');
+    }
+    function fromBase64(str){
+      try{
+        // restore padding
+        while(str.length % 4) str += '=';
+        const json = decodeURIComponent(escape(atob(str)));
+        return JSON.parse(json);
+      }catch(e){return null}
+    }
+
+    // --- simple utilities ---
+    function clean(s){ return (s||'').toString().trim(); }
+
+    // Levenshtein distance (classic) - character level
+    function levenshtein(a,b){
+      a = a||''; b = b||'';
+      const m = a.length, n = b.length;
+      if(m===0) return n;
+      if(n===0) return m;
+      const dp = Array.from({length:m+1},()=> new Array(n+1));
+      for(let i=0;i<=m;i++) dp[i][0]=i;
+      for(let j=0;j<=n;j++) dp[0][j]=j;
+      for(let i=1;i<=m;i++){
+        for(let j=1;j<=n;j++){
+          const cost = a[i-1]===b[j-1]?0:1;
+          dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
+        }
+      }
+      return dp[m][n];
+    }
+
+    // Jaccard word overlap
+    function jaccardWords(a,b){
+      const tokenize = s => (s||'').toLowerCase().replace(/[^\p{L}\p{N} ]+/gu,' ').split(/\s+/).filter(Boolean);
+      const A = new Set(tokenize(a));
+      const B = new Set(tokenize(b));
+      if(A.size===0 && B.size===0) return 1;
+      const inter = [...A].filter(x=>B.has(x)).length;
+      const union = new Set([...A,...B]).size;
+      return union===0?0:inter/union;
+    }
+
+    // compute combined similarity (0..1)
+    function similarity(a,b){
+      a = (a||'').toString(); b = (b||'').toString();
+      if(a.length===0 && b.length===0) return 1;
+      const lev = levenshtein(a,b);
+      const maxLen = Math.max(a.length, b.length) || 1;
+      const charSim = 1 - lev/maxLen; // 0..1
+      const wordSim = jaccardWords(a,b); // 0..1
+      // weight: characters 0.6, words 0.4
+      return Math.max(0, Math.min(1, (charSim*0.6 + wordSim*0.4)));
+    }
+
+    // UI wiring
+    const genBtn = document.getElementById('genBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const linkArea = document.getElementById('linkArea');
+    const shareLink = document.getElementById('shareLink');
+    const qInput = document.getElementById('qInput');
+    const aInput = document.getElementById('aInput');
+
+    genBtn.addEventListener('click',()=>{
+      const q = clean(qInput.value);
+      const a = clean(aInput.value);
+      if(!q){ alert('Kérlek add meg a kérdést.'); return; }
+      if(!a){ if(!confirm('Nincs megadva helyes válasz. Folytatod?')) return; }
+      const payload = {q: q, a: a};
+      const b64 = toBase64(payload);
+      const url = location.origin + location.pathname + '#'+b64;
+      shareLink.value = url;
+      linkArea.style.display = 'block';
+    });
+
+    copyBtn.addEventListener('click',()=>{
+      shareLink.select();
+      document.execCommand('copy');
+      copyBtn.textContent='Kész: másolva';
+      setTimeout(()=>copyBtn.textContent='Másol',1500);
+    });
+
+    // Player functionality
+    const player = document.getElementById('player');
+    const creator = document.getElementById('creator');
+    const qTitle = document.getElementById('qTitle');
+    const qText = document.getElementById('qText');
+    const ansInput = document.getElementById('ansInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const resultBox = document.getElementById('result');
+
+    function showPlayerWith(payload){
+      creator.style.display='none';
+      player.style.display='block';
+      qTitle.textContent = 'Kérdés';
+      qText.textContent = payload.q || '—';
+      // store correct answer in memory but do not show
+      player._correct = payload.a || '';
+    }
+
+    // on load: check for fragment
+    window.addEventListener('load', ()=>{
+      const frag = location.hash.replace('#','');
+      if(frag){
+        const payload = fromBase64(frag);
+        if(payload && payload.q !== undefined){
+          showPlayerWith(payload);
+          return;
+        }
+      }
+      // otherwise show creator
+      creator.style.display='block';
+      player.style.display='none';
+    });
+
+    submitBtn.addEventListener('click', ()=>{
+      const user = clean(ansInput.value);
+      const correct = player._correct || '';
+      if(user.length===0){ alert('Kérlek írj be egy választ.'); return; }
+      const sim = similarity(user, correct);
+      const percent = Math.round(sim*100);
+      resultBox.style.display='block';
+      resultBox.innerHTML = `Egyezés: <strong>${percent}%</strong>` +
+        `<div class="muted small" style="margin-top:8px;font-weight:600">(automatikus összehasonlítás: karakter- és szóegyezés alapján)</div>`;
+
+      // optionally reveal correct answer after showing result? keep hidden but offer button
+      if(!document.getElementById('revealBtn')){
+        const btn = document.createElement('button');
+        btn.id='revealBtn';
+        btn.style.marginTop='10px';
+        btn.textContent='Mutasd a helyes választ';
+        btn.addEventListener('click',()=>{
+          alert('Helyes válasz: ' + correct);
+        });
+        resultBox.appendChild(btn);
+      }
+    });
+
+    // small: pressing enter in answer textarea does not submit -- keep multiline
+
+  </script>
+  <div style="text-align:center;margin-top:30px;">
+    <button style="margin-top:10px">Kész!</button>
+  </div>
 </body>
 </html>
