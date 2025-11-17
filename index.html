@@ -1,0 +1,78 @@
+<!doctype html>
+shareLink.select();
+document.execCommand('copy');
+copyBtn.textContent='Kész: másolva';
+setTimeout(()=>copyBtn.textContent='Másol',1500);
+});
+
+
+// Player functionality
+const player = document.getElementById('player');
+const creator = document.getElementById('creator');
+const qTitle = document.getElementById('qTitle');
+const qText = document.getElementById('qText');
+const ansInput = document.getElementById('ansInput');
+const submitBtn = document.getElementById('submitBtn');
+const resultBox = document.getElementById('result');
+
+
+function showPlayerWith(payload){
+creator.style.display='none';
+player.style.display='block';
+qTitle.textContent = 'Kérdés';
+qText.textContent = payload.q || '—';
+// store correct answer in memory but do not show
+player._correct = payload.a || '';
+}
+
+
+// on load: check for fragment
+window.addEventListener('load', ()=>{
+const frag = location.hash.replace('#','');
+if(frag){
+const payload = fromBase64(frag);
+if(payload && payload.q !== undefined){
+showPlayerWith(payload);
+return;
+}
+}
+// otherwise show creator
+creator.style.display='block';
+player.style.display='none';
+});
+
+
+submitBtn.addEventListener('click', ()=>{
+const user = clean(ansInput.value);
+const correct = player._correct || '';
+if(user.length===0){ alert('Kérlek írj be egy választ.'); return; }
+const sim = similarity(user, correct);
+const percent = Math.round(sim*100);
+resultBox.style.display='block';
+resultBox.innerHTML = `Egyezés: <strong>${percent}%</strong>` +
+`<div class="muted small" style="margin-top:8px;font-weight:600">(automatikus összehasonlítás: karakter- és szóegyezés alapján)</div>`;
+
+
+// optionally reveal correct answer after showing result? keep hidden but offer button
+if(!document.getElementById('revealBtn')){
+const btn = document.createElement('button');
+btn.id='revealBtn';
+btn.style.marginTop='10px';
+btn.textContent='Mutasd a helyes választ';
+btn.addEventListener('click',()=>{
+alert('Helyes válasz: ' + correct);
+});
+resultBox.appendChild(btn);
+}
+});
+
+
+// small: pressing enter in answer textarea does not submit -- keep multiline
+
+
+</script>
+<div style="text-align:center;margin-top:30px;">
+<button style="margin-top:10px">Kész!</button>
+</div>
+</body>
+</html>
